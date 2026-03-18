@@ -24,24 +24,24 @@ button { margin-top: 10px; padding: 8px 16px; }
 </style>
 </head>
 <body>
-<h2>基因Bingo计算器（终极版）</h2>
 
-<div>
-<h3>预设基因池</h3>
+<h2>基因九宫格</h2>
+<div class="grid" id="grid"></div>
+<button onclick="calculate()">计算最优排列</button>
+
+<hr>
+
+<h2>最佳Bingo结果</h2>
+<div class="result" id="result"></div>
+
+<hr>
+
+<h2>预设基因管理</h2>
 <div id="presetList"></div>
 <input id="newName" placeholder="技能名">
 <select id="newAttr"></select>
 <select id="newType"></select>
 <button onclick="addPreset()">添加预设</button>
-</div>
-
-<hr>
-
-<div class="grid" id="grid"></div>
-
-<button onclick="calculate()">计算最优排列</button>
-
-<div class="result" id="result"></div>
 
 <script>
 let presetGenes = [
@@ -95,29 +95,41 @@ function initSelectors(){
 function buildGrid(){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
+
   for(let i=0;i<9;i++){
     const div = document.createElement("div");
     div.className = "cell";
+
     div.innerHTML = `
       <div>格子 ${i+1}</div>
-      <select class="preset">
-        <option value="">选择预设</option>
-        ${presetGenes.map((g,idx)=>`<option value="${idx}">${g.name}</option>`).join("")}
-      </select>
+      <input class="search" placeholder="搜索技能">
+      <select class="preset"></select>
       <input class="name">
-      <select class="attr">${attributes.map(a=>`<option>${a}</option>`).join("")}</select>
-      <select class="type">${types.map(t=>`<option>${t}</option>`).join("")}</select>
     `;
+
     grid.appendChild(div);
   }
 
+  document.querySelectorAll(".search").forEach((input,i)=>{
+    input.oninput = ()=>{
+      const keyword = input.value.toLowerCase();
+      const select = document.querySelectorAll(".preset")[i];
+      select.innerHTML = '<option value="">选择预设</option>' +
+        presetGenes
+          .map((g,idx)=>({...g,idx}))
+          .filter(g=>g.name.toLowerCase().includes(keyword))
+          .map(g=>`<option value="${g.idx}">${g.name}</option>`).join("");
+    };
+  });
+
   document.querySelectorAll(".preset").forEach((sel,i)=>{
+    sel.innerHTML = '<option value="">选择预设</option>' +
+      presetGenes.map((g,idx)=>`<option value="${idx}">${g.name}</option>`).join("");
+
     sel.onchange = ()=>{
       const g = presetGenes[sel.value];
       if(!g) return;
       document.querySelectorAll(".name")[i].value = g.name;
-      document.querySelectorAll(".attr")[i].value = g.attr;
-      document.querySelectorAll(".type")[i].value = g.type;
     };
   });
 }
@@ -178,8 +190,6 @@ function permute(arr){
 
 function calculate(){
   const names=document.querySelectorAll(".name");
-  const attrs=document.querySelectorAll(".attr");
-  const typesEls=document.querySelectorAll(".type");
 
   let genes=[];
   let nameSet=new Set();
@@ -193,7 +203,13 @@ function calculate(){
     }
     nameSet.add(name);
 
-    genes.push({name,attr:attrs[i].value,type:typesEls[i].value});
+    let g = presetGenes.find(x=>x.name===name);
+    if(!g){
+      alert("未识别基因："+name);
+      return;
+    }
+
+    genes.push(g);
   }
 
   let bestScore=0,best=null,bestEval=null;
