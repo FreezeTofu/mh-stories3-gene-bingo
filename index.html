@@ -114,7 +114,6 @@ function renderPresetList(){
       <div>消耗: ${g.cost || "-"}</div>
       <div>威力: ${g.power || "-"}</div>
       <div>破龙力: ${g.break || "-"}</div>
-      
     </div>`
   ).join("");
 }
@@ -130,7 +129,6 @@ function addPreset(){
   const cost = document.getElementById("newCost").value;
   const power = document.getElementById("newPower").value;
   const br = document.getElementById("newBreak").value;
-  
 
   presetGenes.push({name,attr,type,cost,power,break:br});
   saveData(); renderPresetList(); buildGrid();
@@ -174,17 +172,14 @@ function buildGrid(){
   const dropdowns = document.querySelectorAll(".dropdown");
 
   searches.forEach((input,i)=>{
-    input.oninput = ()=>{
-      const keyword = input.value.toLowerCase();
-      const list = presetGenes.filter(g=>g.name.toLowerCase().includes(keyword));
+    const dropdown = dropdowns[i];
 
-      const dropdown = dropdowns[i];
+    function renderList(list){
       dropdown.innerHTML = list.map(g=>`<div>${g.name}</div>`).join("");
 
       dropdown.querySelectorAll("div").forEach(item=>{
         item.onclick = ()=>{
           const g = presetGenes.find(x=>x.name === item.innerText);
-
           input.value = g.name;
 
           const cell = document.querySelectorAll(".cell")[i];
@@ -196,10 +191,24 @@ function buildGrid(){
           dropdown.innerHTML = "";
         };
       });
+    }
+
+    input.oninput = ()=>{
+      const keyword = input.value.toLowerCase();
+      const list = presetGenes.filter(g=>g.name.toLowerCase().includes(keyword));
+      renderList(list);
+    };
+
+    input.onfocus = ()=>{
+      if(!input.value){ renderList(presetGenes); }
+    };
+
+    input.onclick = ()=>{
+      if(!input.value){ renderList(presetGenes); }
     };
 
     input.onblur = ()=>{
-      setTimeout(()=> dropdowns[i].innerHTML = "",200);
+      setTimeout(()=> dropdown.innerHTML = "",200);
     };
   });
 }
