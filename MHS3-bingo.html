@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>基因Bingo计算器（终极版）</title>
+<style>
+body { font-family: Arial; padding: 20px; }
+.grid { display: grid; grid-template-columns: repeat(3, 160px); gap: 10px; }
+.cell { border: 2px solid #ccc; padding: 10px; border-radius: 10px; }
+select, input { width: 100%; margin-top: 5px; }
+button { margin-top: 10px; padding: 8px 16px; }
+.result { margin-top: 20px; }
+.name { font-weight: bold; }
+
+.attr-火 { background:#ffb3b3; }
+.attr-水 { background:#b3e0ff; }
+.attr-冰 { background:#e0ffff; }
+.attr-雷 { background:#fff0b3; }
+.attr-龙 { background:#e6ccff; }
+.attr-无 { background:#eee; }
+.attr-彩虹 { background: linear-gradient(45deg, red, orange, yellow, green, blue, purple); color:white; }
+
+.highlight { border:3px solid red !important; }
+</style>
+</head>
+<body>
+<h2>基因Bingo计算器（终极版）</h2>
+
+<div>
+<h3>预设基因池</h3>
+<div id="presetList"></div>
+<input id="newName" placeholder="技能名">
+<select id="newAttr"></select>
+<select id="newType"></select>
+<button onclick="addPreset()">添加预设</button>
+</div>
+
+<hr>
+
+<div class="grid" id="grid"></div>
+
+<button onclick="calculate()">计算最优排列</button>
+
+<div class="result" id="result"></div>
+
+<script>
+let presetGenes = [
+  {name:"雷电领域",attr:"雷",type:"技"},
+  {name:"雷霆震击+",attr:"雷",type:"速"},
+  {name:"炎舞踏廻",attr:"火",type:"技"},
+  {name:"熔岩翻腾",attr:"火",type:"技"},
+  {name:"睡眠粉塵",attr:"水",type:"技"},
+  {name:"寒冰冲击",attr:"冰",type:"速"},
+  {name:"白色光线",attr:"冰",type:"力"},
+  {name:"六星孵技·冰块碎裂",attr:"冰",type:"速"},
+  {name:"冰冲击",attr:"冰",type:"无"},
+  {name:"凿击",attr:"龙",type:"速"},
+  {name:"耐力回复",attr:"雷",type:"速"},
+  {name:"属性破龙",attr:"冰",type:"速"},
+  {name:"会心",attr:"龙",type:"速"},
+  {name:"破龙强化",attr:"龙",type:"技"},
+  {name:"加速",attr:"水",type:"速"},
+  {name:"回血",attr:"火",type:"速"},
+  {name:"魂之羁绊",attr:"无",type:"速"},
+  {name:"体力增强",attr:"无",type:"力"},
+  {name:"彩虹基因",attr:"彩虹",type:"彩虹"}
+];
+
+const attributes = ["火","水","冰","雷","龙","无","彩虹"];
+const types = ["力","速","技","无","彩虹"];
+const typeIcons = {"力":"💪","速":"⚡","技":"🎯","无":"🚫","彩虹":"🌈"};
+
+function renderPresetList(){
+  const div = document.getElementById("presetList");
+  div.innerHTML = presetGenes.map((g,i)=>
+    `<div>${i+1}. ${g.name} (${g.attr}/${g.type})</div>`
+  ).join("");
+}
+
+function addPreset(){
+  const name = document.getElementById("newName").value;
+  const attr = document.getElementById("newAttr").value;
+  const type = document.getElementById("newType").value;
+  if(!name) return;
+  presetGenes.push({name,attr,type});
+  renderPresetList();
+  buildGrid();
+}
+
+function initSelectors(){
+  document.getElementById("newAttr").innerHTML = attributes.map(a=>`<option>${a}</option>`).join("");
+  document.getElementById("newType").innerHTML = types.map(t=>`<option>${t}</option>`).join("");
+}
+
+function buildGrid(){
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  for(let i=0;i<9;i++){
+    const div = document.createElement("div");
+    div.className = "cell";
+    div.innerHTML = `
+      <div>格子 ${i+1}</div>
+      <select class="preset">
+        <option value="">选择预设</option>
+        ${presetGenes.map((g,idx)=>`<option value="${idx}">${g.name}</option>`).join("")}
+      </select>
+      <input class="name">
+      <select class="attr">${attributes.map(a=>`<option>${a}</option>`).join("")}</select>
+      <select class="type">${types.map(t=>`<option>${t}</option>`).join("")}</select>
+    `;
+    grid.appendChild(div);
+  }
+
+  document.querySelectorAll(".preset").forEach((sel,i)=>{
+    sel.onchange = ()=>{
+      const g = presetGenes[sel.value];
+      if(!g) return;
+      document.querySelectorAll(".name")[i].value = g.name;
+      document.querySelectorAll(".attr")[i].value = g.attr;
+      document.querySelectorAll(".type")[i].value = g.type;
+    };
+  });
+}
+
+const lines = [
+  [0,1,2,"横1"],[3,4,5,"横2"],[6,7,8,"横3"],
+  [0,3,6,"竖1"],[1,4,7,"竖2"],[2,5,8,"竖3"],
+  [0,4,8,"斜1"],[2,4,6,"斜2"]
+];
+
+function checkAttribute(line, board){
+  let vals = line.map(i=>board[i].attr);
+  let nonRainbow = vals.filter(v=>v!=="彩虹");
+  return new Set(nonRainbow).size<=1;
+}
+
+function checkType(line, board){
+  let vals = line.map(i=>board[i].type);
+  if(vals.includes("无")) return false;
+  let nonRainbow = vals.filter(v=>v!=="彩虹");
+  return new Set(nonRainbow).size<=1;
+}
+
+function evaluate(board){
+  let score=0;
+  let highlights=new Set();
+  let detail=[];
+
+  lines.forEach(l=>{
+    const idx=l.slice(0,3);
+    const name=l[3];
+
+    if(checkAttribute(idx,board)){
+      score++;
+      detail.push(name+"：属性Bingo");
+      idx.forEach(i=>highlights.add(i));
+    }
+
+    if(checkType(idx,board)){
+      score++;
+      detail.push(name+"：倾向Bingo");
+      idx.forEach(i=>highlights.add(i));
+    }
+  });
+
+  return {score,highlights,detail};
+}
+
+function permute(arr){
+  if(arr.length<=1) return [arr];
+  let res=[];
+  for(let i=0;i<arr.length;i++){
+    const rest=permute(arr.slice(0,i).concat(arr.slice(i+1)));
+    for(const r of rest){ res.push([arr[i],...r]); }
+  }
+  return res;
+}
+
+function calculate(){
+  const names=document.querySelectorAll(".name");
+  const attrs=document.querySelectorAll(".attr");
+  const typesEls=document.querySelectorAll(".type");
+
+  let genes=[];
+  let nameSet=new Set();
+
+  for(let i=0;i<9;i++){
+    let name = names[i].value || "?";
+
+    if(nameSet.has(name)){
+      alert("不能使用重复基因：" + name);
+      return;
+    }
+    nameSet.add(name);
+
+    genes.push({name,attr:attrs[i].value,type:typesEls[i].value});
+  }
+
+  let bestScore=0,best=null,bestEval=null;
+
+  for(const p of permute(genes)){
+    const ev=evaluate(p);
+    if(ev.score>bestScore){bestScore=ev.score;best=p;bestEval=ev;}
+  }
+
+  let html=`<h3>最高Bingo: ${bestScore}</h3>`;
+
+  html+="<div class='grid'>";
+  for(let i=0;i<9;i++){
+    let c=bestEval.highlights.has(i)?"highlight":"";
+    html+=`<div class='cell attr-${best[i].attr} ${c}'>
+      <div class='name'>${best[i].name}</div>
+      <div>${best[i].attr}/${best[i].type}</div>
+      <div>${typeIcons[best[i].type]}</div>
+    </div>`;
+  }
+  html+="</div>";
+
+  html+="<h3>Bingo明细</h3>";
+  html+=bestEval.detail.map(d=>`<div>${d}</div>`).join("");
+
+  document.getElementById("result").innerHTML=html;
+}
+
+initSelectors();
+renderPresetList();
+buildGrid();
+</script>
+</body>
+</html>
