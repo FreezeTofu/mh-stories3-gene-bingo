@@ -22,6 +22,31 @@ button { margin-top: 10px; padding: 6px 12px; }
 .attr-彩虹 { background: linear-gradient(45deg, red, orange, yellow, green, blue, purple); color:white; }
 
 .highlight { border:3px solid red !important; }
+
+.combo { position: relative; }
+.combo input { padding: 5px 25px 5px 25px; box-sizing: border-box; }
+.icon { position:absolute; top:8px; font-size:12px; pointer-events:none; }
+.icon.left { left:6px; }
+.icon.right { right:6px; }
+
+.dropdown {
+  position:absolute;
+  top:100%;
+  left:0;
+  width:100%;
+  background:#fff;
+  border:1px solid #ccc;
+  max-height:150px;
+  overflow-y:auto;
+  z-index:10;
+}
+.dropdown div {
+  padding:5px;
+  cursor:pointer;
+}
+.dropdown div:hover {
+  background:#eee;
+}
 </style>
 </head>
 <body>
@@ -41,30 +66,34 @@ button { margin-top: 10px; padding: 6px 12px; }
 <input id="newName" placeholder="技能名">
 <select id="newAttr"></select>
 <select id="newType"></select>
+<input id="newCost" placeholder="消耗">
+<input id="newPower" placeholder="威力">
+<input id="newBreak" placeholder="破龙力">
+
 <button onclick="addPreset()">添加预设</button>
 <div id="presetList"></div>
 
 <script>
 const defaultGenes = [
-  {name:"雷电领域",attr:"雷",type:"技"},
-  {name:"雷霆震击+",attr:"雷",type:"速"},
-  {name:"炎舞踏廻",attr:"火",type:"技"},
-  {name:"熔岩翻腾",attr:"火",type:"技"},
-  {name:"睡眠粉塵",attr:"水",type:"技"},
-  {name:"寒冰冲击",attr:"冰",type:"速"},
-  {name:"白色光线",attr:"冰",type:"力"},
-  {name:"六星孵技·冰块碎裂",attr:"冰",type:"速"},
-  {name:"冰冲击",attr:"冰",type:"无"},
-  {name:"凿击",attr:"龙",type:"速"},
-  {name:"耐力回复",attr:"雷",type:"速"},
-  {name:"属性破龙",attr:"冰",type:"速"},
-  {name:"会心",attr:"龙",type:"速"},
-  {name:"破龙强化",attr:"龙",type:"技"},
-  {name:"加速",attr:"水",type:"速"},
-  {name:"回血",attr:"火",type:"速"},
-  {name:"魂之羁绊",attr:"无",type:"速"},
-  {name:"体力增强",attr:"无",type:"力"},
-  {name:"彩虹基因",attr:"彩虹",type:"彩虹"}
+  {name:"雷电领域",attr:"雷",type:"技",power:"70",cost:"20",break:"50"},
+  {name:"雷霆震击+",attr:"雷",type:"速",power:"70",cost:"20",break:"50"},
+  {name:"炎舞踏廻",attr:"火",type:"技",power:"90",cost:"30",break:"50"},
+  {name:"熔岩翻腾",attr:"火",type:"技",power:"80",cost:"30",break:"50"},
+  {name:"睡眠粉塵",attr:"水",type:"技",power:"30",cost:"25",break:"60"},
+  {name:"寒冰冲击",attr:"冰",type:"速",power:"90",cost:"30",break:"40"},
+  {name:"白色光线",attr:"冰",type:"力",power:"60",cost:"15",break:"40"},
+  {name:"六星孵技·冰块碎裂",attr:"冰",type:"速",power:"40",cost:"20",break:"60"},
+  {name:"冰冲击",attr:"冰",type:"无",power:"240",cost:"30",break:"50"},
+
+  {name:"凿击",attr:"龙",type:"速",power:"60",cost:"15",break:"40"},
+  {name:"耐力回复",attr:"雷",type:"速",power:"",cost:"",break:""},
+  {name:"属性破龙",attr:"冰",type:"速",power:"",cost:"",break:""},
+  {name:"会心",attr:"龙",type:"速",power:"",cost:"",break:""},
+  {name:"破龙强化",attr:"龙",type:"技",power:"",cost:"",break:""},
+  {name:"加速",attr:"水",type:"速",power:"",cost:"",break:""},
+  {name:"回血",attr:"火",type:"速",power:"",cost:"",break:""},
+  {name:"魂之羁绊",attr:"无",type:"速",power:"",cost:"",break:""},
+  {name:"体力增强",attr:"无",type:"力",power:"",cost:"",break:""}
 ];
 
 let presetGenes = JSON.parse(localStorage.getItem("genes")) || defaultGenes;
@@ -73,9 +102,7 @@ const attributes = ["火","水","冰","雷","龙","无","彩虹"];
 const types = ["力","速","技","无","彩虹"];
 const typeIcons = {"力":"💪","速":"⚡","技":"🎯","无":"🚫","彩虹":"🌈"};
 
-function saveData(){
-  localStorage.setItem("genes", JSON.stringify(presetGenes));
-}
+function saveData(){ localStorage.setItem("genes", JSON.stringify(presetGenes)); }
 
 function renderPresetList(){
   const div = document.getElementById("presetList");
@@ -83,8 +110,11 @@ function renderPresetList(){
     `<div class="cell attr-${g.attr}">
       <div class="delete-btn" onclick="deletePreset(${index})">✖</div>
       <div class="name">${g.name}</div>
-      <div>${g.attr}/${g.type}</div>
-      <div>${typeIcons[g.type]}</div>
+      <div>${g.attr}/${g.type} ${typeIcons[g.type]}</div>
+      <div>消耗: ${g.cost || "-"}</div>
+      <div>威力: ${g.power || "-"}</div>
+      <div>破龙力: ${g.break || "-"}</div>
+      
     </div>`
   ).join("");
 }
@@ -95,24 +125,21 @@ function addPreset(){
   const type = document.getElementById("newType").value;
 
   if(!name) return alert("请输入名称");
+  if(presetGenes.some(g=>g.name === name)) return alert("基因名称不能重复！");
 
-  if(presetGenes.some(g=>g.name === name)){
-    alert("基因名称不能重复！");
-    return;
-  }
+  const cost = document.getElementById("newCost").value;
+  const power = document.getElementById("newPower").value;
+  const br = document.getElementById("newBreak").value;
+  
 
-  presetGenes.push({name,attr,type});
-  saveData();
-  renderPresetList();
-  buildGrid();
+  presetGenes.push({name,attr,type,cost,power,break:br});
+  saveData(); renderPresetList(); buildGrid();
 }
 
 function deletePreset(index){
   if(!confirm("确定删除该基因？")) return;
   presetGenes.splice(index,1);
-  saveData();
-  renderPresetList();
-  buildGrid();
+  saveData(); renderPresetList(); buildGrid();
 }
 
 function initSelectors(){
@@ -130,8 +157,12 @@ function buildGrid(){
 
     div.innerHTML = `
       <div class="name">基因 ${i+1}</div>
-      <input class="search" placeholder="搜索技能">
-      <select class="preset"></select>
+      <div class="combo">
+        <span class="icon left">🔍</span>
+        <input class="search" placeholder="搜索技能">
+        <span class="icon right">▼</span>
+        <div class="dropdown"></div>
+      </div>
       <div class="attr"></div>
       <div class="type"></div>
     `;
@@ -139,31 +170,36 @@ function buildGrid(){
     grid.appendChild(div);
   }
 
-  document.querySelectorAll(".search").forEach((input,i)=>{
+  const searches = document.querySelectorAll(".search");
+  const dropdowns = document.querySelectorAll(".dropdown");
+
+  searches.forEach((input,i)=>{
     input.oninput = ()=>{
       const keyword = input.value.toLowerCase();
-      const select = document.querySelectorAll(".preset")[i];
-      select.innerHTML = '<option value="">选择预设</option>' +
-        presetGenes
-          .map((g,idx)=>({...g,idx}))
-          .filter(g=>g.name.toLowerCase().includes(keyword))
-          .map(g=>`<option value="${g.idx}">${g.name}</option>`).join("");
+      const list = presetGenes.filter(g=>g.name.toLowerCase().includes(keyword));
+
+      const dropdown = dropdowns[i];
+      dropdown.innerHTML = list.map(g=>`<div>${g.name}</div>`).join("");
+
+      dropdown.querySelectorAll("div").forEach(item=>{
+        item.onclick = ()=>{
+          const g = presetGenes.find(x=>x.name === item.innerText);
+
+          input.value = g.name;
+
+          const cell = document.querySelectorAll(".cell")[i];
+          cell.className = "cell attr-" + g.attr;
+
+          cell.querySelector(".attr").innerText = "属性: " + g.attr;
+          cell.querySelector(".type").innerText = "倾向: " + g.type + " " + typeIcons[g.type];
+
+          dropdown.innerHTML = "";
+        };
+      });
     };
-  });
 
-  document.querySelectorAll(".preset").forEach((sel,i)=>{
-    sel.innerHTML = '<option value="">选择预设</option>' +
-      presetGenes.map((g,idx)=>`<option value="${idx}">${g.name}</option>`).join("");
-
-    sel.onchange = ()=>{
-      const g = presetGenes[sel.value];
-      if(!g) return;
-
-      const cell = document.querySelectorAll(".cell")[i];
-      cell.className = "cell attr-" + g.attr;
-
-      cell.querySelector(".attr").innerText = "属性: " + g.attr;
-      cell.querySelector(".type").innerText = "倾向: " + g.type + " " + typeIcons[g.type];
+    input.onblur = ()=>{
+      setTimeout(()=> dropdowns[i].innerHTML = "",200);
     };
   });
 }
@@ -223,19 +259,16 @@ function permute(arr){
 }
 
 function calculate(){
-  const selects=document.querySelectorAll(".preset");
+  const inputs=document.querySelectorAll(".search");
 
   let genes=[];
   let used=new Set();
 
   for(let i=0;i<9;i++){
-    let idx = selects[i].value;
-    if(idx===""){
-      alert("有未选择的基因");
-      return;
-    }
+    let name = inputs[i].value;
+    let g = presetGenes.find(x=>x.name === name);
 
-    let g = presetGenes[idx];
+    if(!g){ alert("有未选择的基因"); return; }
 
     if(used.has(g.name)){
       alert("不能重复基因: "+g.name);
