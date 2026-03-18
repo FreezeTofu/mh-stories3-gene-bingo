@@ -5,7 +5,7 @@
 <title>基因Bingo计算器（终极版）</title>
 <style>
 body { font-family: Arial; padding: 20px; }
-.grid { display: grid; grid-template-columns: repeat(3, 160px); gap: 10px; }
+.grid { display: grid; grid-template-columns: repeat(3, 180px); gap: 12px; }
 .cell { border: 2px solid #ccc; padding: 10px; border-radius: 10px; }
 select, input { width: 100%; margin-top: 5px; }
 button { margin-top: 10px; padding: 8px 16px; }
@@ -37,11 +37,11 @@ button { margin-top: 10px; padding: 8px 16px; }
 <hr>
 
 <h2>预设基因管理</h2>
-<div id="presetList"></div>
 <input id="newName" placeholder="技能名">
 <select id="newAttr"></select>
 <select id="newType"></select>
 <button onclick="addPreset()">添加预设</button>
+<div id="presetList"></div>
 
 <script>
 let presetGenes = [
@@ -72,8 +72,12 @@ const typeIcons = {"力":"💪","速":"⚡","技":"🎯","无":"🚫","彩虹":"
 
 function renderPresetList(){
   const div = document.getElementById("presetList");
-  div.innerHTML = presetGenes.map((g,i)=>
-    `<div>${i+1}. ${g.name} (${g.attr}/${g.type})</div>`
+  div.innerHTML = presetGenes.map(g=>
+    `<div class="cell attr-${g.attr}">
+      <div class="name">${g.name}</div>
+      <div>${g.attr}/${g.type}</div>
+      <div>${typeIcons[g.type]}</div>
+    </div>`
   ).join("");
 }
 
@@ -101,10 +105,11 @@ function buildGrid(){
     div.className = "cell";
 
     div.innerHTML = `
-      <div>格子 ${i+1}</div>
+      <div class="name">基因 ${i+1}</div>
       <input class="search" placeholder="搜索技能">
       <select class="preset"></select>
-      <input class="name">
+      <div class="attr"></div>
+      <div class="type"></div>
     `;
 
     grid.appendChild(div);
@@ -129,7 +134,12 @@ function buildGrid(){
     sel.onchange = ()=>{
       const g = presetGenes[sel.value];
       if(!g) return;
-      document.querySelectorAll(".name")[i].value = g.name;
+
+      const cell = document.querySelectorAll(".cell")[i];
+      cell.className = "cell attr-" + g.attr;
+
+      cell.querySelector(".attr").innerText = "属性: " + g.attr;
+      cell.querySelector(".type").innerText = "倾向: " + g.type + " " + typeIcons[g.type];
     };
   });
 }
@@ -189,26 +199,26 @@ function permute(arr){
 }
 
 function calculate(){
-  const names=document.querySelectorAll(".name");
+  const selects=document.querySelectorAll(".preset");
 
   let genes=[];
-  let nameSet=new Set();
+  let used=new Set();
 
   for(let i=0;i<9;i++){
-    let name = names[i].value || "?";
-
-    if(nameSet.has(name)){
-      alert("不能使用重复基因：" + name);
-      return;
-    }
-    nameSet.add(name);
-
-    let g = presetGenes.find(x=>x.name===name);
-    if(!g){
-      alert("未识别基因："+name);
+    let idx = selects[i].value;
+    if(idx===""){
+      alert("有未选择的基因");
       return;
     }
 
+    let g = presetGenes[idx];
+
+    if(used.has(g.name)){
+      alert("不能重复基因: "+g.name);
+      return;
+    }
+
+    used.add(g.name);
     genes.push(g);
   }
 
